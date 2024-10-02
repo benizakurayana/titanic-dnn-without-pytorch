@@ -1,6 +1,6 @@
 """
 File: titanic_deep_nn.py
-Name: 
+Name: Jane
 -----------------------------
 This file demonstrates how to create a deep
 neural network (5 layers NN) to train our
@@ -53,11 +53,18 @@ def main():
     print('X.shape', X_train.shape)
     # ['Pclass', 'Sex', 'Age', 'SibSp', 'Parch', 'Fare']
     X = normalize(X_train)
-    ####################################
-    #                                  #
-    #              TODO:               #
-    #                                  #
-    ####################################
+    weights, biases = neural_network(X, Y)
+
+    # Last Forward Prop
+    A = X
+    for i in range(1, L):
+        K = np.dot(weights['W' + str(i)].T, A) + biases['B' + str(i)]
+        A = np.maximum(0, K)
+        i += 1
+    scores = np.dot(weights['W' + str(L)].T, A) + biases['B' + str(L)]
+    predictions = np.where(scores > 0, 1, 0)
+    acc = np.equal(predictions, Y)
+    print('Acc: ', np.sum(acc) / m)
 
 
 def normalize(X):
@@ -89,16 +96,44 @@ def neural_network(X, Y):
         weights['W'+str(i)] = np.random.rand(NODES['N'+str(i-1)], NODES['N'+str(i)]) - 0.5
         biases['B'+str(i)] = np.random.rand(NODES['N' + str(i)], 1) - 0.5
 
+    print_every = 5000
     for epoch in range(NUM_EPOCHS):
         # Forward Pass
-        # TODO:
+        Ks = {}
+        As = {'A0': X}
+        for i in range(1, L):
+            K = np.dot(weights['W' + str(i)].T, As['A' + str(i-1)]) + biases['B' + str(i)]
+            A = np.maximum(0, K)
+            Ks['K' + str(i)] = K
+            As['A' + str(i)] = A
+            i += 1
+        scores = np.dot(weights['W' + str(L)].T, As['A' + str(L-1)]) + biases['B' + str(L)]
+        H = 1 / (1 + np.exp(-scores))
+        J = (-1 / X.shape[1]) * np.sum(Y * np.log(H) + (1 - Y) * np.log(1 - H))
+        if epoch % print_every == 0:
+            print(f'Epoch: {epoch}\t Cost: {J}')
 
         # Backward Pass
-        # TODO:
+        dWs = {}
+        dBs = {}
+        dK = (1 / X.shape[1]) * np.sum(H-Y, axis=0, keepdims=True)
+        dW = np.dot(As['A' + str(L-1)], dK.T)
+        dB = np.sum(dK, axis=1, keepdims=True)
+        dWs['dW' + str(L)] = dW
+        dBs['dB' + str(L)] = dB
+
+        for i in range(L-1, 0, -1):
+            dA = np.dot(weights['W' + str(i+1)], dK)
+            dK = dA * np.where(Ks['K' + str(i)] > 0, 1, 0)
+            dW = np.dot(As['A' + str(i-1)], dK.T)
+            dB = np.sum(dK, axis=1, keepdims=True)
+            dWs['dW' + str(i)] = dW
+            dBs['dB' + str(i)] = dB
 
         # Updates all the weights and biases
-        # TODO:
-        pass
+        for i in range(1, L+1):
+            weights['W' + str(i)] = weights['W' + str(i)] - ALPHA * dWs['dW' + str(i)]
+            biases['B' + str(i)] = biases['B' + str(i)] - ALPHA * dBs['dB' + str(i)]
 
     return weights, biases
 
